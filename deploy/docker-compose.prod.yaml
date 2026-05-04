@@ -1,0 +1,144 @@
+services:
+  postgres:
+    image: postgres:16
+    restart: always
+    env_file:
+      - ./.env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - backend
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - backend
+
+  minio:
+    image: minio/minio:latest
+    restart: always
+    env_file:
+      - ./.env
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    command: ["server", "/data", "--console-address", ":9001"]
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - backend
+
+  migrations:
+    image: ghcr.io/${REGISTRY_NAMESPACE}/ticketrush-migration_services:${IMAGE_TAG}
+    restart: "no"
+    env_file:
+      - ./.env
+    environment:
+      POSTGRES_HOST: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend
+
+  event_service:
+    image: ghcr.io/${REGISTRY_NAMESPACE}/ticketrush-event_service:${IMAGE_TAG}
+    restart: always
+    env_file:
+      - ./.env
+    environment:
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: ${EVENT_SERVICE_PORT:-8080}
+      POSTGRES_HOST: postgres
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+    ports:
+      - "${EVENT_SERVICE_PORT:-8080}:${EVENT_SERVICE_PORT:-8080}"
+    networks:
+      - backend
+
+  booking_api:
+    image: ghcr.io/${REGISTRY_NAMESPACE}/ticketrush-booking_api:${IMAGE_TAG}
+    restart: always
+    env_file:
+      - ./.env
+    environment:
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: ${BOOKING_API_PORT:-8081}
+      POSTGRES_HOST: postgres
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+    ports:
+      - "${BOOKING_API_PORT:-8081}:${BOOKING_API_PORT:-8081}"
+    networks:
+      - backend
+
+  user_api:
+    image: ghcr.io/${REGISTRY_NAMESPACE}/ticketrush-user_api:${IMAGE_TAG}
+    restart: always
+    env_file:
+      - ./.env
+    environment:
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: ${USER_API_PORT:-8082}
+      POSTGRES_HOST: postgres
+      STORAGE_PROVIDER: ${STORAGE_PROVIDER:-minio}
+      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-http://minio:9000}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
+      S3_BUCKET: ${S3_BUCKET:-ticketrush-media}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_PUBLIC_BASE_URL: ${S3_PUBLIC_BASE_URL}
+      UPLOAD_MAX_BYTES: ${UPLOAD_MAX_BYTES:-52428800}
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    ports:
+      - "${USER_API_PORT:-8082}:${USER_API_PORT:-8082}"
+    networks:
+      - backend
+
+  web:
+    image: ghcr.io/${REGISTRY_NAMESPACE}/ticketrush-web:${IMAGE_TAG}
+    restart: always
+    depends_on:
+      booking_api:
+        condition: service_started
+      event_service:
+        condition: service_started
+      user_api:
+        condition: service_started
+    ports:
+      - "${WEB_PORT:-3000}:80"
+    networks:
+      - backend
+
+volumes:
+  postgres_data:
+  minio_data:
+
+networks:
+  backend:
