@@ -1,0 +1,3 @@
+[submodule "TicketRushPlatform_User_Service"]
+	path = TicketRushPlatform_User_Service
+	url = https://github.com/th1enq/TicketRushPlatform_User_Service
