@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"net/http"
 	"time"
 
@@ -27,13 +29,15 @@ func RequestLogger(logger *zap.Logger) gin.HandlerFunc {
 			zap.Duration("latency", latency),
 			zap.String("ip", c.ClientIP()),
 			zap.Int("body_size", c.Writer.Size()),
+			zap.String("request_id", c.GetString("request_id")),
 		}
 
-		if status >= 500 {
+		switch {
+		case status >= 500:
 			logger.Error("server error", fields...)
-		} else if status >= 400 {
+		case status >= 400:
 			logger.Warn("client error", fields...)
-		} else {
+		default:
 			logger.Info("request", fields...)
 		}
 	}
@@ -68,16 +72,12 @@ func RequestID() gin.HandlerFunc {
 	}
 }
 
+// generateRequestID uses crypto/rand for unique, collision-resistant IDs.
 func generateRequestID() string {
-	return time.Now().Format("20060102150405") + "-" + randomString(8)
-}
-
-func randomString(n int) string {
-	const letters = "abcdefghijklmnopqrstuvwxyz0123456789"
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = letters[time.Now().UnixNano()%int64(len(letters))]
-		time.Sleep(1 * time.Nanosecond)
+	b := make([]byte, 8)
+	if _, err := rand.Read(b); err != nil {
+		// fallback: nanosecond timestamp hex
+		return hex.EncodeToString([]byte(time.Now().Format("20060102150405.000000000")))
 	}
-	return string(b)
+	return hex.EncodeToString(b)
 }
