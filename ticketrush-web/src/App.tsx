@@ -1,7 +1,9 @@
-import { Bell, CircleUserRound, QrCode, Ticket } from 'lucide-react'
+import { Bell, CircleUserRound, Menu, Moon, QrCode, Sun, Ticket, X } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { useState } from 'react'
 import { Link, Navigate, NavLink, Route, Routes, useLocation } from 'react-router-dom'
 import { useAuth } from './auth/AuthContext'
+import { useTheme } from './components/ThemeProvider'
 import { AdminCreateEventPage } from './pages/AdminCreateEventPage'
 import { AdminDashboardPage } from './pages/AdminDashboardPage'
 import { AdminLayout } from './pages/AdminLayout'
@@ -19,12 +21,15 @@ import { SeatSelectionPage } from './pages/SeatSelectionPage'
 import { SoundSearchPage } from './pages/SoundSearchPage'
 import { UserManagementPage } from './pages/UserManagementPage'
 import { WaitingRoomPage } from './pages/WaitingRoomPage'
-// App router v2 - admin sidebar layout
+import { ScrollToTop } from './components/ScrollToTop'
+// App router v3 - dark mode + mobile nav + theme toggle
 
 function App() {
   const auth = useAuth()
+  const { theme, toggleTheme } = useTheme()
   const location = useLocation()
   const isAdminRoute = location.pathname.startsWith('/admin')
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   if (isAdminRoute) {
     return (
@@ -57,7 +62,7 @@ function App() {
           TicketRush
         </NavLink>
 
-        <nav className="site-nav" aria-label="Primary navigation">
+        <nav className="site-nav desktop-nav" aria-label="Primary navigation">
           <NavLink to="/">Explore</NavLink>
           {auth.isAuthenticated ? (
             <>
@@ -69,19 +74,61 @@ function App() {
                 <Bell size={18} strokeWidth={2.5} />
                 Notifications
               </NavLink>
-
               <NavLink className="user-nav-link" to="/profile">
                 {auth.user?.avatar_url ? <img src={auth.user.avatar_url} alt="" /> : <CircleUserRound size={18} strokeWidth={2.5} />}
                 <span>{auth.user?.full_name ?? 'Profile'}</span>
               </NavLink>
             </>
           ) : (
+            <NavLink to="/login">Sign in</NavLink>
+          )}
+          <button
+            className="theme-toggle"
+            type="button"
+            onClick={toggleTheme}
+            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {theme === 'dark' ? <Sun size={18} strokeWidth={2.5} /> : <Moon size={18} strokeWidth={2.5} />}
+          </button>
+        </nav>
+
+        <div className="mobile-nav-controls">
+          <button className="theme-toggle" type="button" onClick={toggleTheme} aria-label="Toggle theme">
+            {theme === 'dark' ? <Sun size={18} strokeWidth={2.5} /> : <Moon size={18} strokeWidth={2.5} />}
+          </button>
+          <button
+            className="mobile-menu-toggle"
+            type="button"
+            aria-expanded={mobileNavOpen}
+            aria-label="Toggle navigation menu"
+            onClick={() => setMobileNavOpen((v) => !v)}
+          >
+            {mobileNavOpen ? <X size={20} strokeWidth={2.5} /> : <Menu size={20} strokeWidth={2.5} />}
+          </button>
+        </div>
+      </header>
+
+      {mobileNavOpen && (
+        <nav className="mobile-nav-drawer" aria-label="Mobile navigation">
+          <NavLink to="/" onClick={() => setMobileNavOpen(false)}>Explore</NavLink>
+          {auth.isAuthenticated ? (
             <>
-              <NavLink to="/login">Sign in</NavLink>
+              <NavLink to="/tickets" onClick={() => setMobileNavOpen(false)}>
+                <QrCode size={18} strokeWidth={2.5} /> My Tickets
+              </NavLink>
+              <NavLink to="/notifications" onClick={() => setMobileNavOpen(false)}>
+                <Bell size={18} strokeWidth={2.5} /> Notifications
+              </NavLink>
+              <NavLink to="/profile" onClick={() => setMobileNavOpen(false)}>
+                <CircleUserRound size={18} strokeWidth={2.5} />
+                <span>{auth.user?.full_name ?? 'Profile'}</span>
+              </NavLink>
             </>
+          ) : (
+            <NavLink to="/login" onClick={() => setMobileNavOpen(false)}>Sign in</NavLink>
           )}
         </nav>
-      </header>
+      )}
 
       <Routes>
         <Route path="/" element={<DiscoveryPage />} />
@@ -101,6 +148,7 @@ function App() {
         <Route path="/register" element={<AuthPage initialMode="register" />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       </Routes>
+      <ScrollToTop />
     </main>
   )
 }

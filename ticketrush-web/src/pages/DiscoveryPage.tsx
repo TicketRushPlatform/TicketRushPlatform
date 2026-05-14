@@ -18,6 +18,7 @@ import {
   Ticket,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useDebounce } from '../hooks/useDebounce'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { formatCurrency, formatDate, listEvents } from '../services/ticketRushApi'
@@ -43,6 +44,7 @@ export function DiscoveryPage() {
   const [page, setPage] = useState(1)
   const [featuredIndex, setFeaturedIndex] = useState(0)
   const [isFeaturedSwitching, setIsFeaturedSwitching] = useState(false)
+  const debouncedQuery = useDebounce(query, 280)
 
   useEffect(() => {
     loadEvents()
@@ -89,7 +91,7 @@ export function DiscoveryPage() {
   }
 
   const filteredEvents = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase()
+    const normalizedQuery = debouncedQuery.trim().toLowerCase()
 
     return events
       .filter((event) => {
@@ -117,7 +119,7 @@ export function DiscoveryPage() {
         if (sort === 'name-asc') return first.name.localeCompare(second.name)
         return first.date.localeCompare(second.date)
       })
-  }, [category, date, events, query, sort])
+  }, [category, date, debouncedQuery, events, sort])
   const availableCategories = useMemo(
     () => [...new Set(events.map((event) => event.category))].sort((first, second) => first.localeCompare(second)),
     [events],

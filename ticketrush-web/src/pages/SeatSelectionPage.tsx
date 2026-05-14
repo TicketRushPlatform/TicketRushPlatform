@@ -2,6 +2,7 @@ import { AlertCircle, ArrowLeft, CalendarDays, CheckCircle2, Clock, LoaderCircle
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import { useToast } from '../components/Toast'
 import { formatCurrency, formatDate, getEvent, getSeatsStatus, getShowtime, holdSeats } from '../services/ticketRushApi'
 import type { Seat, SeatClass, Showtime, TicketRushEvent } from '../types'
 
@@ -14,13 +15,14 @@ export function SeatSelectionPage() {
   const { showtimeId } = useParams()
   const navigate = useNavigate()
   const auth = useAuth()
+  const toast = useToast()
   const [event, setEvent] = useState<TicketRushEvent | null>(null)
   const [showtime, setShowtime] = useState<Showtime | null>(null)
   const [seats, setSeats] = useState<Seat[]>([])
   const [selectedSeatIds, setSelectedSeatIds] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isHolding, setIsHolding] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+
 
   async function loadSeats(silent = false) {
     if (!showtimeId) return
@@ -80,7 +82,6 @@ export function SeatSelectionPage() {
 
   function toggleSeat(seat: Seat) {
     if (seat.status !== 'AVAILABLE') return
-    setError(null)
     setSelectedSeatIds((current) => (current.includes(seat.id) ? current.filter((seatId) => seatId !== seat.id) : [...current, seat.id]))
   }
 
@@ -91,14 +92,13 @@ export function SeatSelectionPage() {
       return
     }
     setIsHolding(true)
-    setError(null)
 
     try {
       const booking = await holdSeats(showtimeId, selectedSeatIds, auth.user?.id)
       navigate(`/checkout/${booking.id}`)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not hold these seats. Please try again.')
-      await loadSeats(true)
+      toast(err instanceof Error ? err.message : 'Could not hold these seats. Please try again.', 'error')
+      void loadSeats(true)
     } finally {
       setIsHolding(false)
     }
@@ -220,15 +220,6 @@ export function SeatSelectionPage() {
               ))
             )}
           </div>
-
-          {error && (
-            <div className="auth-notice error">
-              <span className="auth-notice-icon">
-                <AlertCircle size={18} strokeWidth={2.5} />
-              </span>
-              <p>{error}</p>
-            </div>
-          )}
 
           <div className="checkout-total">
             <span>Estimated total</span>

@@ -2,6 +2,7 @@ import { AlertCircle, ArrowLeft, CheckCircle2, Clock, CreditCard, LoaderCircle, 
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { cancelBooking, confirmBooking, formatCurrency, getBookingDetail } from '../services/ticketRushApi'
+import { useToast } from '../components/Toast'
 import type { Booking, Seat, Showtime, TicketRushEvent } from '../types'
 
 type CheckoutDetail = {
@@ -16,6 +17,7 @@ export function CheckoutPage() {
   const navigate = useNavigate()
   const [detail, setDetail] = useState<CheckoutDetail | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const toast = useToast()
   const [isConfirming, setIsConfirming] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [now, setNow] = useState<number>(() => new Date().getTime())
@@ -61,6 +63,7 @@ export function CheckoutPage() {
     setError(null)
     try {
       await confirmBooking(bookingId)
+      toast('Booking confirmed! Your QR tickets are ready.', 'success')
       navigate('/tickets')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not confirm checkout.')
