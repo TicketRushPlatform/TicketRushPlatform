@@ -36,6 +36,14 @@ def register_error_handlers(app):
     def handle_not_found(_):
         return error_response("NOT_FOUND", "Resource was not found.", HTTPStatus.NOT_FOUND)
 
+    @app.errorhandler(405)
+    def handle_method_not_allowed(_):
+        return error_response("METHOD_NOT_ALLOWED", "HTTP method not allowed.", HTTPStatus.METHOD_NOT_ALLOWED)
+
+    @app.errorhandler(500)
+    def handle_internal_server_error(_):
+        return error_response("INTERNAL_SERVER_ERROR", "An unexpected error occurred.", HTTPStatus.INTERNAL_SERVER_ERROR)
+
     @app.errorhandler(429)
     def handle_rate_limited(error):
         return error_response("RATE_LIMITED", "Too many requests.", HTTPStatus.TOO_MANY_REQUESTS, {"limit": str(error.description)})
